@@ -1,0 +1,73 @@
+# ============================================================
+# TransUNet-RS — Training Configuration
+# ============================================================
+
+training:
+  epochs: 100
+  batch_size: 16
+  val_batch_size: 32
+  num_workers: 4
+  seed: 42
+  device: "cuda"
+  mixed_precision: true    # FP16 with torch.cuda.amp
+
+# ── Optimizer ────────────────────────────────────────────────
+optimizer:
+  name: "AdamW"
+  lr: 1.0e-4
+  weight_decay: 1.0e-4
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+
+# ── Learning Rate Scheduler ─────────────────────────────────
+scheduler:
+  name: "CosineAnnealingLR"
+  T_max: 100              # same as epochs
+  eta_min: 1.0e-6
+  warmup_epochs: 5
+  warmup_lr: 1.0e-6
+
+# ── Loss Function ───────────────────────────────────────────
+loss:
+  name: "CE_Dice"
+  ce_weight: 0.5
+  dice_weight: 0.5
+  label_smoothing: 0.1
+  ignore_index: -1
+
+# ── Data ─────────────────────────────────────────────────────
+data:
+  dataset: "eurosat"
+  data_dir: "data/processed"
+  train_split: 0.7
+  val_split: 0.15
+  test_split: 0.15
+  image_size: 256
+  in_channels: 3
+
+# ── Augmentation ─────────────────────────────────────────────
+augmentation:
+  horizontal_flip: true
+  vertical_flip: true
+  random_rotate_90: true
+  spectral_jitter: true
+  spectral_jitter_brightness: 0.2
+  spectral_jitter_contrast: 0.2
+  mixup: true
+  mixup_alpha: 0.2
+  normalize:
+    mean: [0.485, 0.456, 0.406]
+    std:  [0.229, 0.224, 0.225]
+
+# ── Checkpointing & Logging ─────────────────────────────────
+checkpoint:
+  save_dir: "checkpoints"
+  save_best: true
+  save_every: 10
+  metric: "miou"           # monitored metric for best-model selection
+
+logging:
+  log_dir: "runs"
+  use_tensorboard: true
+  use_wandb: false
+  print_freq: 10           # print every N batches

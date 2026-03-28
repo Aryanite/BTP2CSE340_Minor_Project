@@ -1,0 +1,104 @@
+# ============================================================
+# TransUNet-RS — Architecture Diagram Prompts
+# ============================================================
+# Use these prompts with image generation tools (DALL-E, Midjourney,
+# Stable Diffusion, draw.io, or PowerPoint) to create publication-
+# quality architecture diagrams.
+# ============================================================
+
+
+## PROMPT 1: Full Architecture Diagram
+
+"Create a detailed technical architecture diagram for TransUNet-RS, a hybrid 
+CNN-Transformer model for satellite image segmentation. The diagram should 
+flow LEFT to RIGHT and show:
+
+1. INPUT: A satellite image (256×256×3) on the left.
+2. CNN ENCODER (blue blocks): A ResNet-50 backbone with 4 stages:
+   - Stage 0 (Stem): 64 channels, 64×64
+   - Stage 1: 256 channels, 64×64 (with skip arrow going right →)
+   - Stage 2: 512 channels, 32×32 (with skip arrow going right →)
+   - Stage 3: 1024 channels, 16×16
+3. TRANSFORMER BOTTLENECK (purple/violet block): 
+   - Show patch embedding converting 16×16 grid to 256 tokens
+   - 12-layer Transformer encoder stack
+   - With multi-head self-attention visualization
+4. HYBRID DECODER (green blocks): 4 upsampling stages:
+   - Stage 0: 512ch, 32×32 (receives skip3 via cross-attention)
+   - Stage 1: 256ch, 64×64 (receives skip2 via cross-attention)
+   - Stage 2: 64ch, 128×128 (receives skip1 via cross-attention)
+   - Stage 3: 16ch, 256×256 (no skip)
+5. OUTPUT: Segmentation map (10 classes, 256×256) with colorful land cover.
+
+Use clean, minimalist scientific style. White background. Arrows showing 
+data flow. Label each component with its dimensions. Show skip connections 
+as dashed arrows with cross-attention symbols (⊗). Use a professional 
+color scheme: blue for encoder, purple for transformer, green for decoder."
+
+
+## PROMPT 2: CNN Encoder Detail
+
+"Create a detailed block diagram of the ResNet-50 CNN encoder for remote 
+sensing feature extraction. Show:
+
+1. Input image (3×256×256)
+2. Stem block: Conv 7×7 → BN → ReLU → MaxPool
+3. Stage 1 (layer1): 3 Bottleneck blocks → Output: 256×64×64
+4. Stage 2 (layer2): 4 Bottleneck blocks → Output: 512×32×32
+5. Stage 3 (layer3): 6 Bottleneck blocks → Output: 1024×16×16
+
+For each Bottleneck block, show the 1×1→3×3→1×1 conv structure with 
+residual skip connection. Highlight the skip-connection outputs (skip1, 
+skip2, skip3) with colored arrows.
+
+Use a blue color palette. Clean technical diagram style. Show feature 
+map dimensions at each stage with small tensor shape annotations."
+
+
+## PROMPT 3: Transformer Block Detail
+
+"Create an exploded view diagram of a single Transformer encoder block 
+used in TransUNet-RS. Show the internal structure:
+
+1. Input tokens [B, 256, 768]
+2. Layer Normalization
+3. Multi-Head Self-Attention panel:
+   - 12 parallel attention heads
+   - Q, K, V linear projections
+   - Scaled dot-product attention matrix (256×256)
+   - Concatenation and output projection
+4. Residual connection (addition)
+5. Layer Normalization
+6. Feed-Forward Network:
+   - Linear 768 → 3072
+   - GELU activation
+   - Linear 3072 → 768
+7. Residual connection (addition)
+8. Output tokens [B, 256, 768]
+
+Use purple/violet color scheme. Show data flow with arrows. Include 
+mathematical notation for the attention formula. Clean, publication-ready 
+style with labeled components."
+
+
+## PROMPT 4: Hybrid Decoder with Cross-Attention
+
+"Create a detailed diagram of the hybrid decoder with cross-attention 
+skip fusion used in TransUNet-RS. Show:
+
+1. Bottleneck input (1024×16×16) at the top
+2. For each of the first 3 decoder stages, show:
+   a. Bilinear upsampling ×2
+   b. Cross-attention fusion block:
+      - Decoder features as Query (Q)
+      - Encoder skip features as Key (K) and Value (V)
+      - Multi-head cross-attention computation
+      - Residual connection
+   c. Two 3×3 Conv-BN-ReLU blocks
+3. Final stage (no skip): upsample + conv
+4. 1×1 classification head → 10-class output
+
+Show the cross-attention block as an expanded panel with Q/K/V 
+projections and attention matrix visualization. Use green color palette 
+for decoder blocks and orange/yellow for the cross-attention mechanism. 
+Annotate tensor dimensions at each transition."

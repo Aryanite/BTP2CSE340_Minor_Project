@@ -1,0 +1,43 @@
+# ============================================================
+# TransUNet-RS — Docker Compose
+# ============================================================
+# Usage:
+#   docker-compose up --build           # CPU mode
+#   docker-compose up --build --gpu     # GPU mode (requires nvidia-docker)
+# ============================================================
+
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    container_name: transunet-rs-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DEVICE=cpu
+      - MODEL_CHECKPOINT=checkpoints/best_model.pth
+      - MODEL_CONFIG=configs/model_config.yaml
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - MAX_UPLOAD_SIZE_MB=50
+    volumes:
+      - ../checkpoints:/app/checkpoints
+      - ../data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # ── Uncomment for GPU support ────────────────────────────────
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]

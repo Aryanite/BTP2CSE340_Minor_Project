@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="TransUNet-RS — AI-powered satellite image land use classification demo" />
+    <title>TransUNet-RS — LULC Segmentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        /* ── Reset & Variables ──────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary:   #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card:      rgba(17, 24, 39, 0.7);
+            --border:       rgba(99, 102, 241, 0.25);
+            --text-primary: #f1f5f9;
+            --text-muted:   #94a3b8;
+            --accent:       #6366f1;
+            --accent-glow:  rgba(99, 102, 241, 0.4);
+            --success:      #10b981;
+            --danger:       #ef4444;
+            --radius:       16px;
+            --glass-bg:     rgba(15, 23, 42, 0.6);
+            --glass-border: rgba(148, 163, 184, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Animated Background ───────────────────────────────────── */
+        .bg-grid {
+            position: fixed; inset: 0; z-index: 0;
+            background-size: 60px 60px;
+            background-image:
+                linear-gradient(to right, rgba(99,102,241,0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(99,102,241,0.04) 1px, transparent 1px);
+            animation: gridPulse 8s ease-in-out infinite;
+        }
+        @keyframes gridPulse {
+            0%,100% { opacity: 0.5; }
+            50%     { opacity: 1; }
+        }
+
+        .bg-orb {
+            position: fixed; border-radius: 50%; filter: blur(120px);
+            pointer-events: none; z-index: 0;
+        }
+        .bg-orb.orb-1 { width: 500px; height: 500px; background: rgba(99,102,241,0.12); top: -100px; right: -100px; animation: float 15s ease-in-out infinite; }
+        .bg-orb.orb-2 { width: 400px; height: 400px; background: rgba(16,185,129,0.08); bottom: -80px; left: -80px; animation: float 20s ease-in-out infinite reverse; }
+
+        @keyframes float {
+            0%,100% { transform: translateY(0) scale(1); }
+            50%      { transform: translateY(-40px) scale(1.05); }
+        }
+
+        /* ── Layout ────────────────────────────────────────────────── */
+        .container {
+            position: relative; z-index: 1;
+            max-width: 1100px; margin: 0 auto;
+            padding: 40px 24px 60px;
+        }
+
+        /* ── Header ────────────────────────────────────────────────── */
+        header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        header .badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            background: rgba(99,102,241,0.15);
+            color: var(--accent);
+            border: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--text-primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        header p {
+            color: var(--text-muted);
+            font-size: 1.05rem;
+            max-width: 560px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* ── Glass Card ────────────────────────────────────────────── */
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            padding: 32px;
+            margin-bottom: 32px;
+            transition: border-color 0.3s;
+        }
+        .card:hover { border-color: var(--border); }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-title .icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(99,102,241,0.15);
+            font-size: 1rem;
+        }
+
+        /* ── Upload Zone ───────────────────────────────────────────── */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 48px 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(99,102,241,0.06);
+            box-shadow: 0 0 40px var(--accent-glow);
+        }
+        .upload-zone .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 12px;
+            opacity: 0.8;
+        }
+        .upload-zone p { color: var(--text-muted); font-size: 0.95rem; }
+        .upload-zone .browse {
+            color: var(--accent);
+            font-weight: 600;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        #fileInput { display: none; }
+
+        /* ── Preview ───────────────────────────────────────────────── */
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 20px;
+        }
+        @media (max-width: 700px) {
+            .preview-grid { grid-template-columns: 1fr; }
+        }
+        .preview-box {
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+        }
+        .preview-box .label {
+            padding: 10px 16px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .preview-box img {
+            width: 100%; display: block;
+            image-rendering: pixelated;
+        }
+
+        /* ── Stats ─────────────────────────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        .stat {
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat .stat-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .stat .stat-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* ── Distribution Bars ─────────────────────────────────────── */
+        .dist-list { list-style: none; margin-top: 16px; }
+        .dist-item {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 10px; font-size: 0.88rem;
+        }
+        .dist-color {
+            width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+        }
+        .dist-name {
+            min-width: 120px; color: var(--text-muted);
+        }
+        .dist-bar-bg {
+            flex: 1; height: 8px; border-radius: 4px;
+            background: rgba(255,255,255,0.06);
+            overflow: hidden;
+        }
+        .dist-bar {
+            height: 100%; border-radius: 4px;
+            transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+        }
+        .dist-pct {
+            min-width: 48px; text-align: right; font-weight: 600; font-size: 0.82rem;
+        }
+
+        /* ── Button ────────────────────────────────────────────────── */
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 12px 28px;
+            border: none; border-radius: 10px;
+            font-family: inherit; font-size: 0.95rem; font-weight: 600;
+            cursor: pointer; transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1, #818cf8);
+            color: #fff;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5; cursor: not-allowed; transform: none;
+        }
+
+        /* ── Spinner ───────────────────────────────────────────────── */
+        .spinner {
+            width: 20px; height: 20px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+        .loading .spinner { display: block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Hidden ────────────────────────────────────────────────── */
+        .hidden { display: none !important; }
+
+        /* ── Footer ────────────────────────────────────────────────── */
+        footer {
+            text-align: center;
+            padding: 32px 0;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            border-top: 1px solid var(--glass-border);
+            margin-top: 48px;
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+    </style>
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="bg-grid"></div>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="badge">🛰️ Remote Sensing AI</div>
+            <h1>TransUNet-RS</h1>
+            <p>Upload a satellite image to classify land use and land cover using our hybrid CNN-Transformer model.</p>
+        </header>
+
+        <!-- Upload Card -->
+        <div class="card">
+            <div class="card-title"><div class="icon">📤</div> Upload Satellite Image</div>
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">🌍</div>
+                <p>Drag & drop your satellite image here, or <span class="browse" id="browseBtn">browse files</span></p>
+                <p style="margin-top:8px;font-size:0.8rem;color:var(--text-muted)">Supports TIFF, PNG, JPEG — max 50 MB</p>
+            </div>
+            <input type="file" id="fileInput" accept=".tif,.tiff,.png,.jpg,.jpeg" />
+
+            <div style="margin-top:20px;display:flex;align-items:center;gap:12px">
+                <button class="btn btn-primary" id="analyzeBtn" disabled>
+                    <span class="spinner" id="spinner"></span>
+                    <span id="btnText">Analyze Image</span>
+                </button>
+                <span id="fileName" style="color:var(--text-muted);font-size:0.88rem"></span>
+            </div>
+        </div>
+
+        <!-- Results (hidden until prediction) -->
+        <div id="results" class="hidden">
+            <!-- Preview Grid -->
+            <div class="card">
+                <div class="card-title"><div class="icon">🗺️</div> Segmentation Result</div>
+                <div class="preview-grid">
+                    <div class="preview-box">
+                        <div class="label">Original Image</div>
+                        <img id="originalImg" alt="Original satellite image" />
+                    </div>
+                    <div class="preview-box">
+                        <div class="label">Predicted Land Cover</div>
+                        <img id="predImg" alt="Predicted segmentation map" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="card">
+                <div class="card-title"><div class="icon">📊</div> Classification Summary</div>
+                <div class="stats-grid" id="statsGrid"></div>
+            </div>
+
+            <!-- Distribution -->
+            <div class="card">
+                <div class="card-title"><div class="icon">📈</div> Class Distribution</div>
+                <ul class="dist-list" id="distList"></ul>
+            </div>
+        </div>
+
+        <footer>
+            TransUNet-RS &copy; 2026 &mdash; Hybrid CNN-Transformer for LULC Segmentation &nbsp;|&nbsp;
+            <a href="https://github.com" target="_blank">GitHub</a>
+        </footer>
+    </div>
+
+    <script>
+    // ── LULC Class metadata ──────────────────────────────────────
+    const CLASSES = [
+        { name: "AnnualCrop",        color: "#ffff64" },
+        { name: "Forest",            color: "#008000" },
+        { name: "HerbaceousVeg",     color: "#7cfc00" },
+        { name: "Highway",           color: "#808080" },
+        { name: "Industrial",        color: "#ff0000" },
+        { name: "Pasture",           color: "#90ee90" },
+        { name: "PermanentCrop",     color: "#ffa500" },
+        { name: "Residential",       color: "#ffffff" },
+        { name: "River",             color: "#0000ff" },
+        { name: "SeaLake",           color: "#00bfff" },
+    ];
+
+    const API_BASE = "http://localhost:8000";
+
+    // ── DOM elements ─────────────────────────────────────────────
+    const uploadZone  = document.getElementById("uploadZone");
+    const fileInput   = document.getElementById("fileInput");
+    const browseBtn   = document.getElementById("browseBtn");
+    const analyzeBtn  = document.getElementById("analyzeBtn");
+    const spinner     = document.getElementById("spinner");
+    const btnText     = document.getElementById("btnText");
+    const fileNameEl  = document.getElementById("fileName");
+    const resultsDiv  = document.getElementById("results");
+    const originalImg = document.getElementById("originalImg");
+    const predImg     = document.getElementById("predImg");
+    const statsGrid   = document.getElementById("statsGrid");
+    const distList    = document.getElementById("distList");
+
+    let selectedFile = null;
+
+    // ── Upload zone interactions ─────────────────────────────────
+    browseBtn.addEventListener("click", (e) => { e.stopPropagation(); fileInput.click(); });
+    uploadZone.addEventListener("click", () => fileInput.click());
+
+    uploadZone.addEventListener("dragover", (e) => { e.preventDefault(); uploadZone.classList.add("dragover"); });
+    uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+    uploadZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove("dragover");
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener("change", () => {
+        if (fileInput.files.length) handleFile(fileInput.files[0]);
+    });
+
+    function handleFile(file) {
+        selectedFile = file;
+        fileNameEl.textContent = file.name;
+        analyzeBtn.disabled = false;
+        resultsDiv.classList.add("hidden");
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = (e) => { originalImg.src = e.target.result; };
+        reader.readAsDataURL(file);
+    }
+
+    // ── Analyze ──────────────────────────────────────────────────
+    analyzeBtn.addEventListener("click", async () => {
+        if (!selectedFile) return;
+
+        analyzeBtn.disabled = true;
+        analyzeBtn.classList.add("loading");
+        btnText.textContent = "Analyzing…";
+        spinner.style.display = "block";
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        try {
+            const res = await fetch(`${API_BASE}/predict`, { method: "POST", body: formData });
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+            const data = await res.json();
+
+            // Show segmentation map
+            predImg.src = `data:image/png;base64,${data.segmentation_map}`;
+
+            // Stats
+            statsGrid.innerHTML = "";
+            addStat("Dominant Class", data.dominant_class);
+            addStat("Image Width", `${data.image_size.width}px`);
+            addStat("Image Height", `${data.image_size.height}px`);
+            addStat("Classes Detected", Object.keys(data.class_distribution).filter(k => data.class_distribution[k] > 0).length);
+
+            // Distribution bars
+            distList.innerHTML = "";
+            const maxPct = Math.max(...Object.values(data.class_distribution), 1);
+            CLASSES.forEach((cls) => {
+                const pct = data.class_distribution[cls.name] || 0;
+                const li = document.createElement("li");
+                li.className = "dist-item";
+                li.innerHTML = `
+                    <span class="dist-color" style="background:${cls.color}"></span>
+                    <span class="dist-name">${cls.name}</span>
+                    <div class="dist-bar-bg">
+                        <div class="dist-bar" style="width:${(pct / maxPct) * 100}%;background:${cls.color}"></div>
+                    </div>
+                    <span class="dist-pct">${pct.toFixed(1)}%</span>
+                `;
+                distList.appendChild(li);
+            });
+
+            resultsDiv.classList.remove("hidden");
+        } catch (err) {
+            alert("Prediction failed: " + err.message + "\n\nMake sure the API server is running at " + API_BASE);
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.classList.remove("loading");
+            btnText.textContent = "Analyze Image";
+            spinner.style.display = "none";
+        }
+    });
+
+    function addStat(label, value) {
+        const div = document.createElement("div");
+        div.className = "stat";
+        div.innerHTML = `<div class="stat-value">${value}</div><div class="stat-label">${label}</div>`;
+        statsGrid.appendChild(div);
+    }
+    </script>
+</body>
+</html>

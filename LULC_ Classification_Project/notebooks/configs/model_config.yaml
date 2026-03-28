@@ -1,0 +1,38 @@
+# ============================================================
+# TransUNet-RS — Model Configuration
+# ============================================================
+
+model:
+  name: "TransUNet-RS"
+  num_classes: 10  # EuroSAT has 10 LULC classes
+  input_size: 256
+  in_channels: 3
+
+# ── CNN Encoder (ResNet-50) ──────────────────────────────────
+encoder:
+  backbone: "resnet50"
+  pretrained: true
+  freeze_bn: false
+  # Feature channels at each stage:
+  #   stage1: 64,  stage2: 256,  stage3: 512,  stage4: 1024
+  output_stride: 16
+
+# ── Transformer Bottleneck (ViT) ─────────────────────────────
+transformer:
+  embed_dim: 768
+  num_heads: 12
+  num_layers: 12
+  mlp_ratio: 4.0
+  dropout: 0.1
+  attention_dropout: 0.0
+  patch_size: 1           # 1×1 patch on 16×16 feature map = 256 tokens
+  use_learnable_pos_embed: true
+
+# ── Hybrid Decoder ───────────────────────────────────────────
+decoder:
+  channels: [512, 256, 64, 16]
+  skip_channels: [512, 256, 64]
+  use_cross_attention: true
+  cross_attention_heads: 8
+  upsample_mode: "bilinear"
+  dropout: 0.1
